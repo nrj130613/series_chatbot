@@ -1,0 +1,10 @@
+langchain_openai
+langchain
+pandas
+openai
+streamlit
+langfuse
+dotenv
+langchain_community
+openai
+faiss-cpu
