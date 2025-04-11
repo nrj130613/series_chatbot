@@ -94,7 +94,3 @@ def judge_correctness_with_llm(query, reference_documents, retrieved_documents):
         """
     )
     return llm_judge_result.content
-
-# Run Evaluation
-result = judge_correctness_with_llm(query, reference_docs, retrieved_docs)
-print(result)
