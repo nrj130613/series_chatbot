@@ -37,5 +37,5 @@ def preprocess_dataframe(df):
     
     return combined_data
 
-df = pd.read_csv('/Users/natrujapatkit/Desktop/4.2/senior project/test_data.csv')
+df = pd.read_csv('combined_data.csv')
 preprocess_dataframe(df)
