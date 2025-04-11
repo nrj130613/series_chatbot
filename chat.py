@@ -185,7 +185,7 @@ def chat_loop(llm_for_chat, qa_chain, memory, langfuse_handler):
 
 if __name__ == "__main__":
     langfuse_handler = CallbackHandler()
-    df = pd.read_csv('/Users/natrujapatkit/Desktop/4.2/senior project/combined_data.csv')
+    df = pd.read_csv('combined_data.csv')
     texts = df["data"].tolist()
     # Initialize LLM
     llm_for_chat = initialize_llm()
