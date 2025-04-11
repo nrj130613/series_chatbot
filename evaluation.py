@@ -95,10 +95,6 @@ def judge_correctness_with_llm(query, reference_documents, retrieved_documents):
     )
     return llm_judge_result.content
 
-query = "Is product XYZ safe for pregnant women?"
-reference_docs = ["Product XYZ contains folic acid, which is beneficial during pregnancy."]
-retrieved_docs = ["Product XYZ has high vitamin A, which should be limited in pregnancy."]
-
 # Run Evaluation
 result = judge_correctness_with_llm(query, reference_docs, retrieved_docs)
 print(result)
