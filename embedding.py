@@ -2,13 +2,12 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from langchain.embeddings.base import Embeddings
-import streamlit as st
- 
+
 def load_env():
     load_dotenv()
     return {
-        "jai_api_key": st.secrets["JAI_API_KEY"],
-        "jai_base_url": st.secrets["CHAT_BASE_URL"]
+        "jai_api_key": os.getenv("JAI_API_KEY"),
+        "jai_base_url": os.getenv("CHAT_BASE_URL")
     }
 
 # Initialize JAI Client
