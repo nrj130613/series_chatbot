@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from langchain.embeddings.base import Embeddings
+import streamlit as st
 
 # Initialize JAI Client
 def initialize_jai_client():
