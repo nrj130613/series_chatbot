@@ -14,7 +14,7 @@ import os
 
 
 def initialize_llm():
-    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=True, openai_api_key=os.getenv("OPENAI_API_KEY"))
+    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=True)
     return llm_model
 
 def create_qa_chain(ensemble_retriever, llm_for_chat):
