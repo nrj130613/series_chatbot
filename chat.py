@@ -14,7 +14,7 @@ import os
 
 
 def initialize_llm():
-    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=True)
+    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=True, api_key=openai_api_key)
     return llm_model
 
 def create_qa_chain(ensemble_retriever, llm_for_chat):
@@ -189,6 +189,12 @@ if __name__ == "__main__":
     langfuse_handler = CallbackHandler()
     df = pd.read_csv('combined_data.csv')
     texts = df["data"].tolist()
+
+    openai_api_key = st.sidebar.text_input("🔑 Enter your OpenAI API Key", type="password")
+    if not openai_api_key:
+        st.warning("Please enter your OpenAI API key in the sidebar to continue.")
+        st.stop()
+        
     # Initialize LLM
     llm_for_chat = initialize_llm()
 
