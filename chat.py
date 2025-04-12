@@ -13,7 +13,7 @@ from langfuse.callback import CallbackHandler
 import os
 
 def initialize_llm():
-    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=True, api_key=st.secrets['OPENAI_KEY'])
+    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=True, api_key=st.secrets['OPENAI_API_KEY'])
     return llm_model
 
 def create_qa_chain(ensemble_retriever, llm_for_chat):
