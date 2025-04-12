@@ -21,7 +21,7 @@ if not api_key:
 openai.api_key = api_key
 
 def initialize_llm():
-    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=True)
+    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=True, api_key=api_key)
     return llm_model
 
 def create_qa_chain(ensemble_retriever, llm_for_chat):
