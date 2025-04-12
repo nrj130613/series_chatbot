@@ -1,5 +1,6 @@
 import pandas as pd
 from langchain_openai import ChatOpenAI
+import openai
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain.prompts import PromptTemplate
@@ -13,8 +14,14 @@ import streamlit as st
 from langfuse.callback import CallbackHandler
 import os
 
+api_key = st.sidebar.text_input("Enter your OpenAI API Key", type="password")
+if not api_key:
+    st.warning("Please enter your OpenAI API Key to continue.")
+    st.stop()
+openai.api_key = api_key
+
 def initialize_llm():
-    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=True, api_key=st.secrets['OPENAI_API_KEY'])
+    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=True)
     return llm_model
 
 def create_qa_chain(ensemble_retriever, llm_for_chat):
@@ -187,6 +194,7 @@ def chat_loop(llm_for_chat, qa_chain, memory, langfuse_handler):
 
 if __name__ == "__main__":
     langfuse_handler = CallbackHandler()
+    
     # Load data
     df = pd.read_csv("test_data.csv")
 
