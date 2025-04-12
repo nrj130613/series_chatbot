@@ -3,17 +3,9 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from langchain.embeddings.base import Embeddings
 
-def load_env():
-    load_dotenv()
-    return {
-        "jai_api_key": os.getenv("JAI_API_KEY"),
-        "jai_base_url": os.getenv("CHAT_BASE_URL")
-    }
-
 # Initialize JAI Client
 def initialize_jai_client():
-    env = load_env()
-    return OpenAI(api_key=env["jai_api_key"], base_url=env["jai_base_url"])
+    return OpenAI(api_key=st.secrets['JAI_API_KEY'], base_url=st.secrets['CHAT_BASE_URL'])
 
 # JAI Embedding Class
 class JAIEmbeddings(Embeddings):  
