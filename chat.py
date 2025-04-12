@@ -21,7 +21,7 @@ if not api_key:
 openai.api_key = api_key
 
 def initialize_llm():
-    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=True, api_key=api_key)
+    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=False, api_key=api_key)
     return llm_model
 
 def create_qa_chain(ensemble_retriever, llm_for_chat):
@@ -72,9 +72,10 @@ def check_and_generate_followup(llm, chat_history, user_input):
     Related links
 
     Here are the last few relevant user questions:
-    {previous_queries[-3:]}
-
+    {previous_queries[-2:]}
     Latest user question: "{user_input}"
+
+    Use both previous queries and latest user question to evaluate the intent
 
     Evaluation Criteria:
     The question is too broad (respond YES) if it includes fewer than 2 fields and no title, or if it is too vague.
@@ -98,22 +99,9 @@ def check_and_generate_followup(llm, chat_history, user_input):
         The user asked: "{user_input}"
 
         This question is not specific enough.
-        Do **not** ask about platforms.
-
-        Please generate a follow-up question that helps retrieve more relevant information from the database.
-
-        The follow-up question should guide the user to specify one or more of the following:
-        - Title
-        - Director
-        - Cast
-        - Synopsis
-        - Genre
-        - Duration
-        - Number of Episodes
-        - Related Links
-
+        Please generate a follow-up question that helps retrieve more relevant information using details like title, director, cast, genre, synopsis, duration, episode count, or related links.
         Be natural, concise, and do not repeat what the user already provided.
-
+        Do **not** ask about platforms.
         Response in Thai only.
 
         Follow-up Question:
@@ -197,7 +185,6 @@ if __name__ == "__main__":
     
     # Load data
     df = pd.read_csv("test_data.csv")
-
     # Preprocess data
     df = preprocess_dataframe(df)
     texts = df["data"].tolist()
