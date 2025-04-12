@@ -36,6 +36,3 @@ def preprocess_dataframe(df):
     combined_data["source"] = df["Source"]
     
     return combined_data
-
-df = pd.read_csv('combined_data.csv')
-preprocess_dataframe(df)

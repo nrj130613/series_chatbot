@@ -6,6 +6,7 @@ from langchain.prompts import PromptTemplate
 
 from retrieval import create_vector_store, create_retriever
 from embedding import JAIEmbeddings, initialize_jai_client
+from data_processing import preprocess_dataframe
 
 import streamlit as st
 
@@ -186,7 +187,11 @@ def chat_loop(llm_for_chat, qa_chain, memory, langfuse_handler):
 
 if __name__ == "__main__":
     langfuse_handler = CallbackHandler()
-    df = pd.read_csv('combined_data.csv')
+    # Load data
+    df = pd.read_csv("test_data.csv")
+
+    # Preprocess data
+    df = preprocess_dataframe(df)
     texts = df["data"].tolist()
 
     # Initialize LLM
