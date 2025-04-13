@@ -1,18 +1,16 @@
 import pandas as pd
 from langchain_openai import ChatOpenAI
 import openai
-from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationalRetrievalChain
-from langchain.prompts import PromptTemplate
-
+from langchain_core.prompts import ChatPromptTemplate
 from retrieval import create_vector_store, create_retriever
 from embedding import JAIEmbeddings, initialize_jai_client
 from data_processing import preprocess_dataframe
 
-import streamlit as st
+from langchain_core.output_parsers import StrOutputParser
+from langchain.schema.runnable import RunnableMap
 
+import streamlit as st
 from langfuse.callback import CallbackHandler
-import os
 
 api_key = st.sidebar.text_input("Enter your OpenAI API Key", type="password")
 if not api_key:
@@ -21,161 +19,142 @@ if not api_key:
 openai.api_key = api_key
 
 def initialize_llm():
-    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=None, max_retries=2, streaming=False, api_key=api_key)
+    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=10, max_retries=2, streaming=False)
     return llm_model
 
-def create_qa_chain(ensemble_retriever, llm_for_chat):
-    """ combine llm chain with ensemble triever"""
-    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-    custom_prompt = PromptTemplate.from_template("""
-    You are a friendly female assistant who answers questions about series.
-    Respond to user questions using only the information provided in the Context, ensuring all answers are accurate and based on that data only.
-    Do not guess or add any information that is not in the Context.
-    Include a link to the series in your response.
-    Response naturally in Thai only
+def create_retrieval_chain(retriever, llm):
+    """Create a retrieval-augmented generation chain using LCEL."""
+    
+    # Prompt template
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", """
+            You are a friendly female assistant who answers questions about series.
+            Respond to user questions using only the information provided in the Context, ensuring all answers are accurate and based on that data only.
+            Do not guess or add any information that is not in the Context.
+            Include a link to the series in your response.
+            Respond in Thai only.
+        """),
+        ("human", "Context:\n{context}\n\nQuestion: {question}")
+    ])
 
-    Context:
-    {context}
-
-    Question: {question}
-
-    Answer:
-    """)
-    qa_chain = ConversationalRetrievalChain.from_llm(
-        llm_for_chat,
-        retriever=ensemble_retriever,
-        memory=memory,
-        combine_docs_chain_kwargs={"prompt": custom_prompt} 
+    # LCEL retrieval + prompt + LLM + output parser
+    chain = (
+        RunnableMap({
+            "context": lambda x: "\n\n".join([doc.page_content for doc in retriever.invoke(x["question"])]),
+            "question": lambda x: x["question"],
+        })
+        | prompt_template
+        | llm
+        | StrOutputParser()
     )
-    return qa_chain, memory
+
+    return chain
+
+def get_chat_history_text(chat_history, limit=2):
+    return "\n".join(
+        [f"ผู้ใช้: {msg['content']}" if msg["role"] == "user" else f"ผู้ช่วย: {msg['content']}" 
+         for msg in chat_history[-limit*2:]]
+    )
+
+def chatbot_response(chain, user_input, llm, langfuse_handler):
+    """ answer user's query and provide follow-up question if needed """
+     # retireve chat history
+    
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    chat_history = st.session_state.messages
+
+    # retrieve previous queries
+    previous_queries = [msg["content"] for msg in chat_history if msg["role"] == "user"]
+    # Combine with latest input
+    query = " ".join(previous_queries[-2:] + [user_input])
+
+    print(f"[DEBUG] Final combined query: {query}")
+
+    response = chain.invoke({"question": query}, config={"callbacks": [langfuse_handler]})
+
+    # save query and answer to the memory
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.messages.append({"role": "assistant", "content": response})
+
+    # check if the query is too broad
+    is_broad, followup_question = check_and_generate_followup(llm, chat_history, user_input)
+    if is_broad and followup_question:
+        return f"{response}\n\n{followup_question}"
+
+    return response
 
 def check_and_generate_followup(llm, chat_history, user_input):
     """
     Checks if the user's question is too broad.
     If so, generates a follow-up question to clarify.
-    Returns:
-        (is_broad: bool, followup_question: str or None)
     """
-    previous_queries = [msg.content for msg in chat_history]
+    previous_queries = [msg["content"] for msg in st.session_state.messages if msg["role"] == "user"]
+    print(f"[DEBUG] Final previous_queries: {previous_queries}")
 
-    broad_question_prompt = f"""
-    You are an AI that helps determine whether a user's question is specific enough.
-    The database includes the following fields:
+    followup_prompt = f"""
+    You are an AI assistant that checks if the user's question is specific enough. 
+    If not, generate a follow-up question to help narrow down their intent.
 
-    Title
-    Director
-    Cast
-    Synopsis
-    Genre
-    Duration
-    Number of episodes
-    Related links
+    Chat History:
+    {get_chat_history_text(chat_history)}
 
-    Here are the last few relevant user questions:
-    {previous_queries[-2:]}
     Latest user question: "{user_input}"
 
-    Use both previous queries and latest user question to evaluate the intent
+    Guidelines:
+    - A question is too broad if it lacks key information such as a series title, genre, director, cast, or other specific attributes.
+    - If the question is too vague, suggest a follow-up question that asks for more detail (e.g., title, genre, cast, synopsis, etc.).
+    - Be natural and concise. Don't repeat what the user already asked.
+    - Do **not** ask about platforms or where to watch.
+    - Respond in **Thai only**.
+    - If the original question is already specific enough, return **nothing**.
 
-    Evaluation Criteria:
-    The question is too broad (respond YES) if it includes fewer than 2 fields and no title, or if it is too vague.
-    The question is specific enough (respond NO) if it includes at least 2 relevant fields or already has a title.
-
-    Examples:
-    "Recommend a series" → YES
-    "Are there any detective series directed by Christopher Nolan?" → NO
-    "Who stars in Reply 1988?" → NO
-
-    Respond using only "YES" or "NO"
+    Follow-up Question (if needed):
     """
 
-    is_broad = llm.invoke(broad_question_prompt).content.strip().upper() == "YES"
+    followup_question = llm.invoke(followup_prompt).content.strip()
 
-    if is_broad:
-        followup_prompt = f"""
-        Here is the chat history:
-        {chat_history}
-
-        The user asked: "{user_input}"
-
-        This question is not specific enough.
-        Please generate a follow-up question that helps retrieve more relevant information using details like title, director, cast, genre, synopsis, duration, episode count, or related links.
-        Be natural, concise, and do not repeat what the user already provided.
-        Do **not** ask about platforms.
-        Response in Thai only.
-
-        Follow-up Question:
-        """
-
-        followup_question = llm.invoke(followup_prompt).content.strip()
+    if followup_question:
         return True, followup_question
-
     return False, None
 
-
-def chatbot_response(llm_for_chat, qa_chain, memory, user_input, langfuse_handler):
-    """ answer user's query and provide follow-up question if needed """
-     # retireve chat history
-
-    chat_history = memory.load_memory_variables({}).get("chat_history", [])
-
-    # retrieve previous queries
-    previous_queries = [msg.content for msg in chat_history] if chat_history else []
-    
-    #combine previous queries with the latest one
-    query = " ".join(previous_queries[-3:]) + " " + user_input
-
-    response = qa_chain.invoke({"question": query}, config={"callbacks": [langfuse_handler]})
-    answer = response["answer"].strip()
-
-    # save query and answer to the memory
-    memory.save_context({"question": query}, {"answer": answer})
-
-    # check if the query is too broad
-    is_broad, followup_question = check_and_generate_followup(llm_for_chat, chat_history, user_input)
-    if is_broad and followup_question:
-        return f"{answer}\n\n{followup_question}"
-
-    return answer
-
-def chat_loop(llm_for_chat, qa_chain, memory, langfuse_handler):
+def chat_loop(llm_for_chat, qa_chain, langfuse_handler):
     """Start chatting with user using memory and context."""
     st.title("Series Search Assistant")
-    st.write("สวัสดีค่ะ! ฉันสามารถช่วยแนะนำซีรีส์หรือให้ข้อมูลเกี่ยวกับนักแสดง ผู้กำกับ และเรื่องย่อของซีรีส์ต่าง ๆ ได้ คุณกำลังมองหาซีรีส์แบบไหนอยู่คะ?")
+    st.write("สวัสดีค่ะ! ฉันสามารถช่วยแนะนำซีรีส์หรือให้ข้อมูลเกี่ยวกับนักแสดง ผู้กำกับ และเรื่องย่อของซีรีส์ต่าง ๆ ได้ คุณกำลังมองหาซีรีส์แบบไหนอยู่คะ?")    
 
-    # Initialize chat history
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    # Display chat messages from history on app rerun
-    for message in st.session_state.messages:
+    # Initialize display_messages if it doesn't exist
+    if "display_messages" not in st.session_state:
+        st.session_state.display_messages = []
+    
+    # Display all messages in the chat history
+    for message in st.session_state.display_messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
     
     prompt = st.chat_input("คุณ:", key="chat_input")
 
     if prompt:
-            # User exits the chat
+        # User exits the chat
         if prompt.lower() == "exit":
-                st.session_state.messages.append({"role": "assistant", "content": "ขอบคุณค่ะ หวังว่าข้อมูลจะเป็นประโยชน์นะคะ!"})
-                st.stop()  # Restart the app so the user sees the exit message
+            st.session_state.messages.append({"role": "assistant", "content": "ขอบคุณค่ะ หวังว่าข้อมูลจะเป็นประโยชน์นะคะ!"})
+            st.stop()  # Restart the app so the user sees the exit message
 
-            # Display user message
+        # Display user message
         with st.chat_message("user"):
-                st.markdown(prompt)
+            st.markdown(prompt)
 
-            # Add user message to history
-        st.session_state.messages.append({"role": "user", "content": prompt})
-
-            # Get bot response
-        response = chatbot_response(llm_for_chat, qa_chain, memory, prompt, langfuse_handler)
-
-            # Display bot response
+        # Get bot response
+        response = chatbot_response(qa_chain, prompt, llm_for_chat, langfuse_handler)
+        
+        # Display bot response
         with st.chat_message("assistant"):
-                st.markdown(response)
-
-            # Add bot response to history
-        st.session_state.messages.append({"role": "assistant", "content": response})
+            st.markdown(response)
+            
+        # Append to display messages instead of replacing them
+        st.session_state.display_messages.append({"role": "user", "content": prompt})
+        st.session_state.display_messages.append({"role": "assistant", "content": response})
 
         st.rerun()  # Refresh chat UI to maintain conversation history
 
@@ -185,28 +164,23 @@ if __name__ == "__main__":
     
     # Load data
     df = pd.read_csv("test_data.csv")
-    # Preprocess data
     df = preprocess_dataframe(df)
     texts = df["data"].tolist()
 
-    # Initialize LLM
+    # Initialize LLM, client, embeddings
     llm_for_chat = initialize_llm()
-
-    # Initialize JAI client and embeddings
     client = initialize_jai_client()
     jai_embedding = JAIEmbeddings(client, model_name="jai-emb-passage")
 
-    # Create FAISS vector store
+    # Create vector store and retriever
     vector_store = create_vector_store(jai_embedding, texts)
-
-    # Create retriever
     ensemble_retriever = create_retriever(texts, vector_store)
 
-    # Create QA chain
-    qa_chain, memory = create_qa_chain(ensemble_retriever, llm_for_chat)
+    qa_chain = create_retrieval_chain(ensemble_retriever, llm_for_chat)
 
-    # Start Streamlit app
-    chat_loop(llm_for_chat, qa_chain, memory, langfuse_handler)
+    # Start app
+    chat_loop(llm_for_chat, qa_chain, langfuse_handler)
+
 
 
 
