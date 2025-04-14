@@ -18,6 +18,8 @@ if not api_key:
     st.stop()
 openai.api_key = api_key
 
+print(api_key)
+
 def initialize_llm():
     llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=10, max_retries=2, streaming=False)
     return llm_model
@@ -69,6 +71,9 @@ def chatbot_response(chain, user_input, llm, langfuse_handler):
     previous_queries = [msg["content"] for msg in chat_history if msg["role"] == "user"]
     # Combine with latest input
     query = " ".join(previous_queries[-2:] + [user_input])
+
+    print(f"[DEBUG] Final combined query: {query}")
+
     response = chain.invoke({"question": query}, config={"callbacks": [langfuse_handler]})
 
     # save query and answer to the memory
@@ -168,7 +173,6 @@ if __name__ == "__main__":
     llm_for_chat = initialize_llm()
     client = initialize_jai_client()
     jai_embedding = JAIEmbeddings(client, model_name="jai-emb-passage")
-
     # Create vector store and retriever
     vector_store = create_vector_store(jai_embedding, texts)
     ensemble_retriever = create_retriever(texts, vector_store)
@@ -177,7 +181,3 @@ if __name__ == "__main__":
 
     # Start app
     chat_loop(llm_for_chat, qa_chain, langfuse_handler)
-
-
-
-
