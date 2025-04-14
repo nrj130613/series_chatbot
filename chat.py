@@ -69,9 +69,6 @@ def chatbot_response(chain, user_input, llm, langfuse_handler):
     previous_queries = [msg["content"] for msg in chat_history if msg["role"] == "user"]
     # Combine with latest input
     query = " ".join(previous_queries[-2:] + [user_input])
-
-    print(f"[DEBUG] Final combined query: {query}")
-
     response = chain.invoke({"question": query}, config={"callbacks": [langfuse_handler]})
 
     # save query and answer to the memory
