@@ -16,12 +16,11 @@ api_key = st.sidebar.text_input("Enter your OpenAI API Key", type="password")
 if not api_key:
     st.warning("Please enter your OpenAI API Key to continue.")
     st.stop()
-openai.api_key = api_key
 
 print(api_key)
 
 def initialize_llm():
-    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=10, max_retries=2, streaming=False)
+    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=10, max_retries=2, streaming=False, api_key=api_key)
     return llm_model
 
 def create_retrieval_chain(retriever, llm):
