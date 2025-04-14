@@ -8,6 +8,7 @@ from data_processing import preprocess_dataframe
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain.schema.runnable import RunnableMap
+from langchain_voyageai import VoyageAIEmbeddings
 
 import streamlit as st
 from langfuse.callback import CallbackHandler
@@ -172,8 +173,10 @@ if __name__ == "__main__":
     llm_for_chat = initialize_llm()
     client = initialize_jai_client()
     jai_embedding = JAIEmbeddings(client, model_name="jai-emb-passage")
+    voyage = JAIEmbeddings(voyage_api_key="pa-lTzTRUJQkxetNEBkwD8oq59W0vlcFePpZ3kPAv-ZP6p", model="voyage-3")
     # Create vector store and retriever
-    vector_store = create_vector_store(jai_embedding, texts)
+    vector_store = create_vector_store(voyage, texts)
+    
     ensemble_retriever = create_retriever(texts, vector_store)
 
     qa_chain = create_retrieval_chain(ensemble_retriever, llm_for_chat)
