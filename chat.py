@@ -173,7 +173,7 @@ if __name__ == "__main__":
     llm_for_chat = initialize_llm()
     client = initialize_jai_client()
     jai_embedding = JAIEmbeddings(client, model_name="jai-emb-passage")
-    voyage = VoyageEmbeddings(voyage_api_key="pa-lTzTRUJQkxetNEBkwD8oq59W0vlcFePpZ3kPAv-ZP6p", model="voyage-3")
+    voyage = VoyageAIEmbeddings(voyage_api_key="pa-lTzTRUJQkxetNEBkwD8oq59W0vlcFePpZ3kPAv-ZP6p", model="voyage-3")
     # Create vector store and retriever
     vector_store = create_vector_store(voyage, texts)
     
