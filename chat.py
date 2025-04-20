@@ -1,6 +1,5 @@
 import pandas as pd
 from langchain_openai import ChatOpenAI
-import openai
 from langchain_core.prompts import ChatPromptTemplate
 from retrieval import create_vector_store, create_retriever
 from embedding import JAIEmbeddings, initialize_jai_client
@@ -12,14 +11,13 @@ from langchain.schema.runnable import RunnableMap
 import streamlit as st
 from langfuse.callback import CallbackHandler
 
-api_key = st.sidebar.text_input("Enter your OpenAI API Key", type="password")
-if not api_key:
-    st.warning("Please enter your OpenAI API Key to continue.")
-    st.stop()
-
 def initialize_llm():
-    llm_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=500, timeout=10, max_retries=2, streaming=False, api_key=api_key)
-    return llm_model
+    llm = ChatOpenAI(
+    model="jai-chat-1-3-2",
+    temperature=0.1,
+    api_key=st.secrets['JAI_API_KEY'], base_url=st.secrets['CHAT_BASE_URL']
+)
+    return llm
 
 def create_retrieval_chain(retriever, llm):
     """Create a retrieval-augmented generation chain using LCEL."""
@@ -66,10 +64,9 @@ def chatbot_response(chain, user_input, llm, langfuse_handler):
 
     # retrieve previous queries
     previous_queries = [msg["content"] for msg in chat_history if msg["role"] == "user"]
+
     # Combine with latest input
     query = " ".join(previous_queries[-2:] + [user_input])
-
-    print(f"[DEBUG] Final combined query: {query}")
 
     response = chain.invoke({"question": query}, config={"callbacks": [langfuse_handler]})
 
@@ -89,8 +86,6 @@ def check_and_generate_followup(llm, chat_history, user_input):
     Checks if the user's question is too broad.
     If so, generates a follow-up question to clarify.
     """
-    previous_queries = [msg["content"] for msg in st.session_state.messages if msg["role"] == "user"]
-    print(f"[DEBUG] Final previous_queries: {previous_queries}")
 
     followup_prompt = f"""
     You are an AI assistant that checks if the user's question is specific enough. 
@@ -98,6 +93,7 @@ def check_and_generate_followup(llm, chat_history, user_input):
 
     Chat History:
     {get_chat_history_text(chat_history)}
+
 
     Latest user question: "{user_input}"
 
