@@ -110,9 +110,9 @@ def check_and_generate_followup(llm, chat_history, user_input):
 
     followup_question = llm.invoke(followup_prompt).content.strip()
 
-    if followup_question:
-        return True, followup_question
-    return False, None
+    if followup_question == "None":
+        return False, None
+    return True, followup_question
 
 def chat_loop(llm_for_chat, qa_chain, langfuse_handler):
     """Start chatting with user using memory and context."""
