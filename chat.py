@@ -103,16 +103,16 @@ def check_and_generate_followup(llm, chat_history, user_input):
     - Be natural and concise. Don't repeat what the user already asked.
     - Do **not** ask about platforms or where to watch.
     - Respond in **Thai only**.
-    - If the original question is already specific enough, return **nothing**.
+    - If the original question is already specific enough, return **None**.
 
     Follow-up Question (if needed):
     """
 
     followup_question = llm.invoke(followup_prompt).content.strip()
 
-    if followup_question:
-        return True, followup_question
-    return False, None
+    if followup_question == "None":
+        return False, None
+    return True, followup_question
 
 def chat_loop(llm_for_chat, qa_chain, langfuse_handler):
     """Start chatting with user using memory and context."""
