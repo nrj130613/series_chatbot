@@ -69,8 +69,6 @@ def chatbot_response(chain, user_input, llm, langfuse_handler):
     # Combine with latest input
     query = " ".join(previous_queries[-2:] + [user_input])
 
-    print(f"[DEBUG] Final combined query: {query}")
-
     response = chain.invoke({"question": query}, config={"callbacks": [langfuse_handler]})
 
     # save query and answer to the memory
@@ -89,8 +87,6 @@ def check_and_generate_followup(llm, chat_history, user_input):
     Checks if the user's question is too broad.
     If so, generates a follow-up question to clarify.
     """
-    previous_queries = [msg["content"] for msg in st.session_state.messages if msg["role"] == "user"]
-    print(f"[DEBUG] Final previous_queries: {previous_queries}")
 
     followup_prompt = f"""
     You are an AI assistant that checks if the user's question is specific enough. 
