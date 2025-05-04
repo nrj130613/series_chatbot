@@ -9,7 +9,6 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.schema.runnable import RunnableMap
 
 import streamlit as st
-from langfuse.callback import CallbackHandler
 
 def initialize_llm():
     llm = ChatOpenAI(
@@ -53,7 +52,7 @@ def get_chat_history_text(chat_history, limit=2):
          for msg in chat_history[-limit*2:]]
     )
 
-def chatbot_response(chain, user_input, llm, langfuse_handler):
+def chatbot_response(chain, user_input, llm):
     """ answer user's query and provide follow-up question if needed """
      # retireve chat history
     
@@ -68,7 +67,7 @@ def chatbot_response(chain, user_input, llm, langfuse_handler):
     # Combine with latest input
     query = " ".join(previous_queries[-2:] + [user_input])
 
-    response = chain.invoke({"question": query}, config={"callbacks": [langfuse_handler]})
+    response = chain.invoke({"question": query})
 
     # save query and answer to the memory
     st.session_state.messages.append({"role": "user", "content": user_input})
@@ -114,7 +113,7 @@ def check_and_generate_followup(llm, chat_history, user_input):
         return False, None
     return True, followup_question
 
-def chat_loop(llm_for_chat, qa_chain, langfuse_handler):
+def chat_loop(llm_for_chat, qa_chain):
     """Start chatting with user using memory and context."""
     st.title("Series Search Assistant")
     st.write("สวัสดีค่ะ! ฉันสามารถช่วยแนะนำซีรีส์หรือให้ข้อมูลเกี่ยวกับนักแสดง ผู้กำกับ และเรื่องย่อของซีรีส์ต่าง ๆ ได้ คุณกำลังมองหาซีรีส์แบบไหนอยู่คะ?")    
@@ -141,7 +140,7 @@ def chat_loop(llm_for_chat, qa_chain, langfuse_handler):
             st.markdown(prompt)
 
         # Get bot response
-        response = chatbot_response(qa_chain, prompt, llm_for_chat, langfuse_handler)
+        response = chatbot_response(qa_chain, prompt, llm_for_chat)
         
         # Display bot response
         with st.chat_message("assistant"):
@@ -155,8 +154,6 @@ def chat_loop(llm_for_chat, qa_chain, langfuse_handler):
 
 
 if __name__ == "__main__":
-    langfuse_handler = CallbackHandler()
-    
     # Load data
     df = pd.read_csv("test_data.csv")
     df = preprocess_dataframe(df)
@@ -169,8 +166,8 @@ if __name__ == "__main__":
     # Create vector store and retriever
     vector_store = create_vector_store(jai_embedding, texts)
     ensemble_retriever = create_retriever(texts, vector_store)
-
+    
     qa_chain = create_retrieval_chain(ensemble_retriever, llm_for_chat)
 
     # Start app
-    chat_loop(llm_for_chat, qa_chain, langfuse_handler)
+    chat_loop(llm_for_chat, qa_chain)
